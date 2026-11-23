@@ -38,10 +38,13 @@ class CrosswordPuzzleWidget extends ConsumerWidget {
               (puzzleAsync) => puzzleAsync.value?.crossword.characters[location],
             ),
           );
+          // Cells outside any word: light blue, like the empty background.
           if (solutionCell == null) {
-            return Container(
-              margin: const EdgeInsets.all(1),
-              color: colors.surfaceContainerHighest,
+            return DecoratedBox(
+              decoration: BoxDecoration(
+                color: colors.primaryContainer,
+                border: Border.all(color: colors.onSurface),
+              ),
             );
           }
 
@@ -88,17 +91,19 @@ class CrosswordPuzzleWidget extends ConsumerWidget {
                     controller.isOpen ? controller.close() : controller.open(),
                 child: MouseRegion(
                   cursor: SystemMouseCursors.click,
-                  child: Container(
-                    margin: const EdgeInsets.all(1),
-                    color: placed == null
-                        ? colors.secondaryContainer
-                        : colors.primaryContainer,
+                  // Word cells are white; the letter appears once chosen.
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: colors.onSurface),
+                    ),
                     child: Center(
                       child: Text(
                         placed?.toUpperCase() ?? '',
                         style: TextStyle(
                           color: colors.onPrimaryContainer,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),

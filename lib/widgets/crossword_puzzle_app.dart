@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../providers.dart';
 import 'crossword_generator_widget.dart';
+import 'crossword_info_widget.dart';
 import 'crossword_puzzle_widget.dart';
 import 'puzzle_completed_widget.dart';
 
@@ -52,12 +53,25 @@ class _PuzzleScaffold extends StatelessWidget {
         child: Consumer(
           builder: (context, ref, child) {
             final puzzleAsync = ref.watch(puzzleProvider);
-            return puzzleAsync.when(
-              data: (puzzle) => puzzle.solved
-                  ? const PuzzleCompletedWidget()
-                  : const CrosswordPuzzleWidget(),
-              error: (error, stackTrace) => Center(child: Text('$error')),
-              loading: () => const CrosswordGeneratorWidget(),
+            final showInfo = ref.watch(showDisplayInfoProvider);
+            return Stack(
+              children: [
+                Positioned.fill(
+                  child: puzzleAsync.when(
+                    data: (puzzle) => puzzle.solved
+                        ? const PuzzleCompletedWidget()
+                        : const CrosswordPuzzleWidget(),
+                    error: (error, stackTrace) => Center(child: Text('$error')),
+                    loading: () => const CrosswordGeneratorWidget(),
+                  ),
+                ),
+                if (showInfo)
+                  const Positioned(
+                    right: 16,
+                    bottom: 16,
+                    child: CrosswordInfoWidget(),
+                  ),
+              ],
             );
           },
         ),
@@ -72,6 +86,7 @@ class _CrosswordPuzzleMenu extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentSize = ref.watch(sizeProvider);
+    final showInfo = ref.watch(showDisplayInfoProvider);
 
     return MenuAnchor(
       menuChildren: [
@@ -84,6 +99,12 @@ class _CrosswordPuzzleMenu extends ConsumerWidget {
             onPressed: () => ref.read(sizeProvider.notifier).setSize(size),
             child: Text(size.label),
           ),
+        const Divider(),
+        MenuItemButton(
+          leadingIcon: Icon(showInfo ? Icons.check : null, size: 20),
+          onPressed: () => ref.read(showDisplayInfoProvider.notifier).toggle(),
+          child: const Text('Display Info'),
+        ),
       ],
       builder: (context, controller, child) {
         return IconButton(

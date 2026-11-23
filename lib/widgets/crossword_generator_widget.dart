@@ -56,12 +56,14 @@ class CrosswordGeneratorWidget extends ConsumerWidget {
           return AnimatedContainer(
             duration: Durations.extralong1,
             curve: Curves.easeInOut,
-            margin: const EdgeInsets.all(1),
-            color: explorationCell
-                ? colors.primary
-                : occupied
-                ? colors.primaryContainer
-                : colors.surfaceContainerHighest,
+            decoration: BoxDecoration(
+              color: explorationCell
+                  ? colors.primary
+                  : occupied
+                  ? Colors.white
+                  : colors.primaryContainer,
+              border: Border.all(color: colors.onSurface),
+            ),
             child: Center(
               child: AnimatedDefaultTextStyle(
                 duration: Durations.extralong1,
@@ -70,7 +72,8 @@ class CrosswordGeneratorWidget extends ConsumerWidget {
                   color: explorationCell
                       ? colors.onPrimary
                       : colors.onPrimaryContainer,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
                 ),
                 child: Text(occupied ? '•' : ''),
               ),
