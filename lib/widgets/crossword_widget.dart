@@ -69,20 +69,39 @@ class _CrosswordWidgetState extends ConsumerState<CrosswordWidget> {
               ),
             ),
           );
+          // Cells on the search frontier are highlighted with inverted colors.
+          final explorationCell = ref.watch(
+            workQueueProvider.select(
+              (workQueueAsync) => workQueueAsync.when(
+                data: (workQueue) =>
+                    workQueue.locationsToTry.containsKey(location),
+                error: (error, stackTrace) => false,
+                loading: () => false,
+              ),
+            ),
+          );
           final colors = Theme.of(context).colorScheme;
 
-          return Container(
+          return AnimatedContainer(
+            duration: Durations.extralong1,
+            curve: Curves.easeInOut,
             margin: const EdgeInsets.all(1),
-            color: character == null
+            color: explorationCell
+                ? colors.primary
+                : character == null
                 ? colors.surfaceContainerHighest
                 : colors.primaryContainer,
             child: Center(
-              child: Text(
-                character?.character.toUpperCase() ?? '',
+              child: AnimatedDefaultTextStyle(
+                duration: Durations.extralong1,
+                curve: Curves.easeInOut,
                 style: TextStyle(
-                  color: colors.onPrimaryContainer,
+                  color: explorationCell
+                      ? colors.onPrimary
+                      : colors.onPrimaryContainer,
                   fontWeight: FontWeight.bold,
                 ),
+                child: Text(character?.character.toUpperCase() ?? ''),
               ),
             ),
           );

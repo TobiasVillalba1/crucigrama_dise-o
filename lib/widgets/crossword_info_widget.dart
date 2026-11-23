@@ -46,6 +46,10 @@ class CrosswordInfoWidget extends ConsumerWidget {
                 value: remaining.formatted,
               ),
             _CrosswordInfoRichText(
+              label: 'Max worker count',
+              value: ref.watch(workerCountProvider).label,
+            ),
+            _CrosswordInfoRichText(
               label: 'Words in grid',
               value: info.wordsInGridCount,
             ),

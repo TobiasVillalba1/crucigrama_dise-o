@@ -99,6 +99,58 @@ abstract class _$Size extends $Notifier<CrosswordSize> {
   }
 }
 
+@ProviderFor(WorkerCount)
+final workerCountProvider = WorkerCountProvider._();
+
+final class WorkerCountProvider
+    extends $NotifierProvider<WorkerCount, BackgroundWorkers> {
+  WorkerCountProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'workerCountProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$workerCountHash();
+
+  @$internal
+  @override
+  WorkerCount create() => WorkerCount();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(BackgroundWorkers value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<BackgroundWorkers>(value),
+    );
+  }
+}
+
+String _$workerCountHash() => r'f3a524c6a04e5dc7bd690ff1d71ea3c332eef55e';
+
+abstract class _$WorkerCount extends $Notifier<BackgroundWorkers> {
+  BackgroundWorkers build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<BackgroundWorkers, BackgroundWorkers>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<BackgroundWorkers, BackgroundWorkers>,
+              BackgroundWorkers,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
 /// When the current generation run started. Kept alive so the value survives
 /// the stats overlay being hidden.
 
@@ -314,7 +366,7 @@ final class WorkQueueProvider
   }
 }
 
-String _$workQueueHash() => r'dc0e7210b6602741bc646a893efe87ae5db95767';
+String _$workQueueHash() => r'15b9f7967aa6d3c2dd038cb5dc90c6e1739f285e';
 
 @ProviderFor(expectedRemainingTime)
 final expectedRemainingTimeProvider = ExpectedRemainingTimeProvider._();

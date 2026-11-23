@@ -60,6 +60,7 @@ class _CrosswordGeneratorMenu extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentSize = ref.watch(sizeProvider);
+    final currentWorkers = ref.watch(workerCountProvider);
     final showInfo = ref.watch(showDisplayInfoProvider);
 
     return MenuAnchor(
@@ -72,6 +73,17 @@ class _CrosswordGeneratorMenu extends ConsumerWidget {
             ),
             onPressed: () => ref.read(sizeProvider.notifier).setSize(size),
             child: Text(size.label),
+          ),
+        const Divider(),
+        for (final workers in BackgroundWorkers.values)
+          MenuItemButton(
+            leadingIcon: Icon(
+              workers == currentWorkers ? Icons.check : null,
+              size: 20,
+            ),
+            onPressed: () =>
+                ref.read(workerCountProvider.notifier).setCount(workers),
+            child: Text('${workers.label} worker${workers.count == 1 ? '' : 's'}'),
           ),
         const Divider(),
         MenuItemButton(

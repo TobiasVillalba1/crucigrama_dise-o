@@ -49,6 +49,32 @@ class Size extends _$Size {
   void setSize(CrosswordSize size) => state = size;
 }
 
+/// Selectable sizes for the pool of background worker isolates.
+enum BackgroundWorkers {
+  one(1),
+  two(2),
+  four(4),
+  eight(8),
+  sixteen(16),
+  thirtyTwo(32),
+  sixtyFour(64),
+  oneTwentyEight(128);
+
+  const BackgroundWorkers(this.count);
+
+  final int count;
+
+  String get label => '$count';
+}
+
+@Riverpod(keepAlive: true)
+class WorkerCount extends _$WorkerCount {
+  @override
+  BackgroundWorkers build() => BackgroundWorkers.four;
+
+  void setCount(BackgroundWorkers workers) => state = workers;
+}
+
 /// When the current generation run started. Kept alive so the value survives
 /// the stats overlay being hidden.
 @Riverpod(keepAlive: true)
@@ -82,6 +108,7 @@ class ShowDisplayInfo extends _$ShowDisplayInfo {
 @riverpod
 Stream<model.WorkQueue> workQueue(Ref ref) async* {
   final size = ref.watch(sizeProvider);
+  final workers = ref.watch(workerCountProvider);
   final wordList = await ref.watch(wordListProvider.future);
 
   ref.read(endTimeProvider.notifier).clear();
@@ -93,6 +120,7 @@ Stream<model.WorkQueue> workQueue(Ref ref) async* {
       height: size.height,
     ),
     wordList: wordList,
+    maxWorkerCount: workers.count,
   );
 
   ref.read(endTimeProvider.notifier).end();
