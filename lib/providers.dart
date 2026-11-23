@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:built_collection/built_collection.dart';
 import 'package:flutter/services.dart';
+import 'package:riverpod/riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'isolates.dart';
@@ -48,18 +49,94 @@ class Size extends _$Size {
   void setSize(CrosswordSize size) => state = size;
 }
 
-/// Streams valid crosswords produced by [exploreCrosswordSolutions]. Watching
-/// [sizeProvider] restarts the stream whenever the user picks a new size.
+/// When the current generation run started. Kept alive so the value survives
+/// the stats overlay being hidden.
+@Riverpod(keepAlive: true)
+class StartTime extends _$StartTime {
+  @override
+  DateTime? build() => null;
+
+  void start() => state = DateTime.now();
+}
+
+/// When the current generation run finished (null while running).
+@Riverpod(keepAlive: true)
+class EndTime extends _$EndTime {
+  @override
+  DateTime? build() => null;
+
+  void clear() => state = null;
+  void end() => state = DateTime.now();
+}
+
+@Riverpod(keepAlive: true)
+class ShowDisplayInfo extends _$ShowDisplayInfo {
+  @override
+  bool build() => true;
+
+  void toggle() => state = !state;
+}
+
+/// Streams the search state from [exploreCrosswordSolutions]. Watching
+/// [sizeProvider] restarts the run whenever the user picks a new size.
 @riverpod
-Stream<model.Crossword> crossword(Ref ref) async* {
+Stream<model.WorkQueue> workQueue(Ref ref) async* {
   final size = ref.watch(sizeProvider);
   final wordList = await ref.watch(wordListProvider.future);
 
-  final crossword = model.Crossword.crossword(
-    width: size.width,
-    height: size.height,
-  );
-  yield crossword;
+  ref.read(endTimeProvider.notifier).clear();
+  ref.read(startTimeProvider.notifier).start();
 
-  yield* exploreCrosswordSolutions(crossword: crossword, wordList: wordList);
+  yield* exploreCrosswordSolutions(
+    crossword: model.Crossword.crossword(
+      width: size.width,
+      height: size.height,
+    ),
+    wordList: wordList,
+  );
+
+  ref.read(endTimeProvider.notifier).end();
+}
+
+/// Greedy search tops out well below a full grid; this is the coverage a
+/// finished run typically reaches and is used to extrapolate the remaining
+/// time.
+const _estimatedTotalCoverage = 0.54;
+
+@riverpod
+Duration expectedRemainingTime(Ref ref) {
+  final start = ref.watch(startTimeProvider);
+  final end = ref.watch(endTimeProvider);
+  final workQueue = ref.watch(workQueueProvider).value;
+
+  if (start == null || end != null || workQueue == null) {
+    return Duration.zero;
+  }
+
+  final crossword = workQueue.crossword;
+  final coverage =
+      crossword.characters.length / (crossword.width * crossword.height);
+  final progress = (coverage / _estimatedTotalCoverage).clamp(0.0, 1.0);
+  if (progress <= 0) {
+    return Duration.zero;
+  }
+
+  final elapsed = DateTime.now().difference(start);
+  return elapsed * ((1 - progress) / progress);
+}
+
+@riverpod
+class DisplayInfo extends _$DisplayInfo {
+  @override
+  model.DisplayInfo build() {
+    return ref.watch(
+      workQueueProvider.select(
+        (workQueueAsync) => workQueueAsync.when(
+          data: (workQueue) => model.DisplayInfo.from(workQueue: workQueue),
+          error: (error, stackTrace) => model.DisplayInfo.empty,
+          loading: () => model.DisplayInfo.empty,
+        ),
+      ),
+    );
+  }
 }

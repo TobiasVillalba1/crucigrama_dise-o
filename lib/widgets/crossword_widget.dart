@@ -61,9 +61,9 @@ class _CrosswordWidgetState extends ConsumerState<CrosswordWidget> {
         builder: (context, ref, _) {
           // Only this cell rebuilds when its own character changes.
           final character = ref.watch(
-            crosswordProvider.select(
-              (crosswordAsync) => crosswordAsync.when(
-                data: (crossword) => crossword.characters[location],
+            workQueueProvider.select(
+              (workQueueAsync) => workQueueAsync.when(
+                data: (workQueue) => workQueue.crossword.characters[location],
                 error: (error, stackTrace) => null,
                 loading: () => null,
               ),

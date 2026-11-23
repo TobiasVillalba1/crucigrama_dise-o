@@ -48,8 +48,9 @@ Crossword? _findFit(
 /// Backtracking search: repeatedly picks an open intersection from the
 /// [WorkQueue], filters the dictionary to words containing the letter already
 /// there, and tries to cross it in a background isolate. Dead ends are
-/// removed from the queue. Yields every improved [Crossword].
-Stream<Crossword> exploreCrosswordSolutions({
+/// removed from the queue. Yields the [WorkQueue] after every iteration so the
+/// UI can show both the grid and the search statistics.
+Stream<WorkQueue> exploreCrosswordSolutions({
   required Crossword crossword,
   required BuiltSet<String> wordList,
 }) async* {
@@ -90,8 +91,8 @@ Stream<Crossword> exploreCrosswordSolutions({
       workQueue = workQueue.remove(location);
     } else {
       workQueue = workQueue.updateFrom(candidate);
-      yield workQueue.crossword;
     }
+    yield workQueue;
   }
 
   debugPrint(

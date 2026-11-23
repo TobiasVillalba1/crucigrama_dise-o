@@ -2,6 +2,7 @@ import 'package:built_collection/built_collection.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 import 'package:characters/characters.dart';
+import 'package:intl/intl.dart';
 
 part 'model.g.dart';
 
@@ -12,6 +13,7 @@ part 'model.g.dart';
   CrosswordWord,
   CrosswordCharacter,
   WorkQueue,
+  DisplayInfo,
 ])
 final Serializers serializers = _$serializers;
 
@@ -358,4 +360,48 @@ abstract class WorkQueue implements Built<WorkQueue, WorkQueueBuilder> {
 
   WorkQueue._();
   factory WorkQueue([void Function(WorkQueueBuilder)? updates]) = _$WorkQueue;
+}
+
+/// Pre-formatted generation statistics shown in the HUD overlay.
+abstract class DisplayInfo implements Built<DisplayInfo, DisplayInfoBuilder> {
+  static Serializer<DisplayInfo> get serializer => _$displayInfoSerializer;
+
+  String get wordsInGridCount;
+  String get candidateWordsCount;
+  String get locationsToExploreCount;
+  String get knownBadLocationsCount;
+  String get gridFilledPercentage;
+
+  factory DisplayInfo.from({required WorkQueue workQueue}) {
+    final numbers = NumberFormat.decimalPattern();
+    final percent = NumberFormat.decimalPercentPattern(decimalDigits: 1);
+    final crossword = workQueue.crossword;
+    final cells = crossword.width * crossword.height;
+
+    return DisplayInfo(
+      (b) => b
+        ..wordsInGridCount = numbers.format(crossword.words.length)
+        ..candidateWordsCount = numbers.format(workQueue.candidateWords.length)
+        ..locationsToExploreCount = numbers.format(
+          workQueue.locationsToTry.length,
+        )
+        ..knownBadLocationsCount = numbers.format(workQueue.badLocations.length)
+        ..gridFilledPercentage = percent.format(
+          cells == 0 ? 0 : crossword.characters.length / cells,
+        ),
+    );
+  }
+
+  static DisplayInfo get empty => DisplayInfo(
+    (b) => b
+      ..wordsInGridCount = '0'
+      ..candidateWordsCount = '0'
+      ..locationsToExploreCount = '0'
+      ..knownBadLocationsCount = '0'
+      ..gridFilledPercentage = '0.0%',
+  );
+
+  DisplayInfo._();
+  factory DisplayInfo([void Function(DisplayInfoBuilder)? updates]) =
+      _$DisplayInfo;
 }
