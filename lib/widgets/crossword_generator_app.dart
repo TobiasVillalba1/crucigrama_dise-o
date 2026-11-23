@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../providers.dart';
+import 'crossword_widget.dart';
 
 class CrosswordGeneratorApp extends StatelessWidget {
   const CrosswordGeneratorApp({super.key});
@@ -13,22 +14,9 @@ class CrosswordGeneratorApp extends StatelessWidget {
         appBar: AppBar(
           title: const Text('Crossword Generator'),
           backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+          actions: const [_CrosswordGeneratorMenu()],
         ),
-        body: Consumer(
-          builder: (context, ref, child) {
-            final wordListAsync = ref.watch(wordListProvider);
-            return wordListAsync.when(
-              data: (wordList) => ListView.builder(
-                itemCount: wordList.length,
-                itemBuilder: (context, index) {
-                  return ListTile(title: Text(wordList.elementAt(index)));
-                },
-              ),
-              error: (error, stackTrace) => Center(child: Text('$error')),
-              loading: () => const Center(child: CircularProgressIndicator()),
-            );
-          },
-        ),
+        body: const SafeArea(child: CrosswordWidget()),
       ),
     );
   }
@@ -45,5 +33,36 @@ class _EagerInitialization extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(wordListProvider);
     return child;
+  }
+}
+
+class _CrosswordGeneratorMenu extends ConsumerWidget {
+  const _CrosswordGeneratorMenu();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentSize = ref.watch(sizeProvider);
+
+    return MenuAnchor(
+      menuChildren: [
+        for (final size in CrosswordSize.values)
+          MenuItemButton(
+            leadingIcon: Icon(
+              size == currentSize ? Icons.check : null,
+              size: 20,
+            ),
+            onPressed: () => ref.read(sizeProvider.notifier).setSize(size),
+            child: Text(size.label),
+          ),
+      ],
+      builder: (context, controller, child) {
+        return IconButton(
+          icon: const Icon(Icons.settings),
+          tooltip: 'Settings',
+          onPressed: () =>
+              controller.isOpen ? controller.close() : controller.open(),
+        );
+      },
+    );
   }
 }
