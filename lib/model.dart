@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:built_collection/built_collection.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
@@ -14,6 +16,7 @@ part 'model.g.dart';
   CrosswordCharacter,
   WorkQueue,
   DisplayInfo,
+  CrosswordPuzzleGame,
 ])
 final Serializers serializers = _$serializers;
 
@@ -178,6 +181,7 @@ abstract class Crossword implements Built<Crossword, CrosswordBuilder> {
     required Location location,
     required String word,
     required Direction direction,
+    bool requireOverlap = true,
   }) {
     if (words.any((w) => w.word == word)) {
       return null;
@@ -206,7 +210,7 @@ abstract class Crossword implements Built<Crossword, CrosswordBuilder> {
       overlaps = true;
     }
 
-    if (words.isNotEmpty && !overlaps) {
+    if (words.isNotEmpty && requireOverlap && !overlaps) {
       return null;
     }
 
@@ -404,4 +408,133 @@ abstract class DisplayInfo implements Built<DisplayInfo, DisplayInfoBuilder> {
   DisplayInfo._();
   factory DisplayInfo([void Function(DisplayInfoBuilder)? updates]) =
       _$DisplayInfo;
+}
+
+/// The word-puzzle game built on a solved [Crossword]: for every word of the
+/// solution there are five options (the real word plus four same-length
+/// distractors) and the player fills the grid by picking one per slot.
+abstract class CrosswordPuzzleGame
+    implements Built<CrosswordPuzzleGame, CrosswordPuzzleGameBuilder> {
+  static Serializer<CrosswordPuzzleGame> get serializer =>
+      _$crosswordPuzzleGameSerializer;
+
+  /// The solved crossword.
+  Crossword get crossword;
+
+  /// Options per slot, keyed by the word's start location and direction.
+  BuiltMap<Location, BuiltMap<Direction, BuiltList<String>>> get alternateWords;
+
+  /// The words the player has placed so far.
+  BuiltList<CrosswordWord> get selectedWords;
+
+  static bool _sameSlot(CrosswordWord w, Location l, Direction d) =>
+      w.location == l && w.direction == d;
+
+  /// The grid made of the player's current selections.
+  @memoized
+  Crossword get crosswordFromSelectedWords => Crossword(
+    (b) => b
+      ..width = crossword.width
+      ..height = crossword.height
+      ..words.replace(selectedWords),
+  );
+
+  /// Whether [word] can be placed in the slot at [location] / [direction]
+  /// next to the words already selected (replacing that slot's own choice).
+  bool canSelectWord({
+    required Location location,
+    required String word,
+    required Direction direction,
+  }) => _place(location: location, word: word, direction: direction) != null;
+
+  Crossword? _place({
+    required Location location,
+    required String word,
+    required Direction direction,
+  }) {
+    final replacing = selectedWords.any((w) => _sameSlot(w, location, direction));
+    final base = replacing
+        ? Crossword(
+            (b) => b
+              ..width = crossword.width
+              ..height = crossword.height
+              ..words.replace(
+                selectedWords.where((w) => !_sameSlot(w, location, direction)),
+              ),
+          )
+        : crosswordFromSelectedWords;
+    return base.addWord(
+      location: location,
+      word: word,
+      direction: direction,
+      requireOverlap: false,
+    );
+  }
+
+  /// Places [word] in its slot, or returns `null` if it doesn't fit.
+  CrosswordPuzzleGame? selectWord({
+    required Location location,
+    required String word,
+    required Direction direction,
+  }) {
+    if (_place(location: location, word: word, direction: direction) == null) {
+      return null;
+    }
+    return rebuild(
+      (b) => b
+        ..selectedWords.removeWhere((w) => _sameSlot(w, location, direction))
+        ..selectedWords.add(
+          CrosswordWord.word(
+            word: word,
+            location: location,
+            direction: direction,
+          ),
+        ),
+    );
+  }
+
+  /// All slots filled with a valid combination of words.
+  bool get solved =>
+      selectedWords.length == crossword.words.length &&
+      crosswordFromSelectedWords.valid;
+
+  factory CrosswordPuzzleGame.from({
+    required Crossword crossword,
+    required BuiltSet<String> candidateWords,
+  }) {
+    final random = Random();
+    final used = crossword.words.map((w) => w.word).toSet();
+    final byLength = <int, List<String>>{};
+    for (final word in candidateWords) {
+      if (!used.contains(word)) {
+        (byLength[word.length] ??= []).add(word);
+      }
+    }
+
+    final alternates = <Location, Map<Direction, BuiltList<String>>>{};
+    for (final word in crossword.words) {
+      final pool = byLength[word.word.length] ?? const <String>[];
+      final distractors = <String>{};
+      var attempts = 0;
+      while (distractors.length < 4 && pool.isNotEmpty && attempts < 200) {
+        distractors.add(pool[random.nextInt(pool.length)]);
+        attempts++;
+      }
+      alternates.putIfAbsent(word.location, () => {})[word.direction] =
+          ([word.word, ...distractors]..sort()).toBuiltList();
+    }
+
+    return CrosswordPuzzleGame(
+      (b) => b
+        ..crossword.replace(crossword)
+        ..alternateWords.replace({
+          for (final e in alternates.entries) e.key: e.value.build(),
+        }),
+    );
+  }
+
+  CrosswordPuzzleGame._();
+  factory CrosswordPuzzleGame([
+    void Function(CrosswordPuzzleGameBuilder)? updates,
+  ]) = _$CrosswordPuzzleGame;
 }
