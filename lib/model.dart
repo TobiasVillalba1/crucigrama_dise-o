@@ -120,16 +120,89 @@ abstract class Crossword implements Built<Crossword, CrosswordBuilder> {
   BuiltList<CrosswordWord> get words;
   BuiltMap<Location, CrosswordCharacter> get characters;
 
+  /// Whether this crossword satisfies the English crossword constraints:
+  ///
+  /// * no duplicate words,
+  /// * every character is inside the grid (and, by construction, part of at
+  ///   least one word),
+  /// * vertically adjacent characters share the same down word,
+  /// * horizontally adjacent characters share the same across word.
+  bool get valid {
+    if (words.map((w) => w.word).toSet().length != words.length) {
+      return false;
+    }
+
+    for (final MapEntry(key: location, value: character)
+        in characters.entries) {
+      if (location.x < 0 ||
+          location.x >= width ||
+          location.y < 0 ||
+          location.y >= height) {
+        return false;
+      }
+      if (character.acrossWord == null && character.downWord == null) {
+        return false;
+      }
+
+      final below = characters[location.down];
+      if (below != null &&
+          (character.downWord == null || character.downWord != below.downWord)) {
+        return false;
+      }
+
+      final right = characters[location.right];
+      if (right != null &&
+          (character.acrossWord == null ||
+              character.acrossWord != right.acrossWord)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   /// Adds [word] at [location] running in [direction].
   ///
-  /// At this stage no validation is performed, so words can overwrite each
-  /// other. Constraints are enforced in a later step.
-  Crossword addWord({
+  /// Returns `null` if the word is already in the crossword, conflicts with an
+  /// existing character or same-direction word, does not overlap an existing
+  /// word (when the crossword is not empty), or would make the crossword
+  /// invalid.
+  Crossword? addWord({
     required Location location,
     required String word,
     required Direction direction,
   }) {
-    return rebuild(
+    if (words.any((w) => w.word == word)) {
+      return null;
+    }
+
+    var overlaps = false;
+    for (final (idx, character) in word.characters.indexed) {
+      final at = switch (direction) {
+        Direction.across => location.rightOffset(idx),
+        Direction.down => location.downOffset(idx),
+      };
+      final existing = characters[at];
+      if (existing == null) {
+        continue;
+      }
+      if (existing.character != character) {
+        return null;
+      }
+      final sameDirectionWord = switch (direction) {
+        Direction.across => existing.acrossWord,
+        Direction.down => existing.downWord,
+      };
+      if (sameDirectionWord != null) {
+        return null;
+      }
+      overlaps = true;
+    }
+
+    if (words.isNotEmpty && !overlaps) {
+      return null;
+    }
+
+    final candidate = rebuild(
       (b) => b
         ..words.add(
           CrosswordWord.word(
@@ -139,6 +212,8 @@ abstract class Crossword implements Built<Crossword, CrosswordBuilder> {
           ),
         ),
     );
+
+    return candidate.valid ? candidate : null;
   }
 
   /// Recomputes [characters] from [words] every time a builder is finalized.

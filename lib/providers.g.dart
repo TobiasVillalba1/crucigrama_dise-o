@@ -99,16 +99,14 @@ abstract class _$Size extends $Notifier<CrosswordSize> {
   }
 }
 
-/// Places random words at random locations and directions every 100 ms until
-/// 80% of the grid cells are filled. Watching [sizeProvider] restarts the
-/// stream whenever the user picks a different grid size.
+/// Streams valid crosswords produced by [exploreCrosswordSolutions]. Watching
+/// [sizeProvider] restarts the stream whenever the user picks a new size.
 
 @ProviderFor(crossword)
 final crosswordProvider = CrosswordProvider._();
 
-/// Places random words at random locations and directions every 100 ms until
-/// 80% of the grid cells are filled. Watching [sizeProvider] restarts the
-/// stream whenever the user picks a different grid size.
+/// Streams valid crosswords produced by [exploreCrosswordSolutions]. Watching
+/// [sizeProvider] restarts the stream whenever the user picks a new size.
 
 final class CrosswordProvider
     extends
@@ -118,9 +116,8 @@ final class CrosswordProvider
           Stream<model.Crossword>
         >
     with $FutureModifier<model.Crossword>, $StreamProvider<model.Crossword> {
-  /// Places random words at random locations and directions every 100 ms until
-  /// 80% of the grid cells are filled. Watching [sizeProvider] restarts the
-  /// stream whenever the user picks a different grid size.
+  /// Streams valid crosswords produced by [exploreCrosswordSolutions]. Watching
+  /// [sizeProvider] restarts the stream whenever the user picks a new size.
   CrosswordProvider._()
     : super(
         from: null,
@@ -147,4 +144,4 @@ final class CrosswordProvider
   }
 }
 
-String _$crosswordHash() => r'2a266b8ad29bcf9f836d98a8b34de0a1a8b056c4';
+String _$crosswordHash() => r'857246ce1302af76e0e1bb02e07c2ff552b03634';
