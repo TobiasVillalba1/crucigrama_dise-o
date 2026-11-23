@@ -6,7 +6,13 @@ import 'package:characters/characters.dart';
 part 'model.g.dart';
 
 /// Returns a serializer collection for the crossword model types.
-@SerializersFor([Location, Crossword, CrosswordWord, CrosswordCharacter])
+@SerializersFor([
+  Location,
+  Crossword,
+  CrosswordWord,
+  CrosswordCharacter,
+  WorkQueue,
+])
 final Serializers serializers = _$serializers;
 
 /// A 0-based (x, y) coordinate on the crossword grid.
@@ -269,4 +275,87 @@ abstract class Crossword implements Built<Crossword, CrosswordBuilder> {
 
   Crossword._();
   factory Crossword([void Function(CrosswordBuilder)? updates]) = _$Crossword;
+}
+
+/// The state of the backtracking search: the crossword built so far, the open
+/// intersections still worth trying, the ones known to be dead ends and the
+/// words not yet used.
+abstract class WorkQueue implements Built<WorkQueue, WorkQueueBuilder> {
+  static Serializer<WorkQueue> get serializer => _$workQueueSerializer;
+
+  Crossword get crossword;
+  BuiltMap<Location, Direction> get locationsToTry;
+  BuiltSet<Location> get badLocations;
+  BuiltSet<String> get candidateWords;
+
+  bool get isCompleted => locationsToTry.isEmpty || candidateWords.isEmpty;
+
+  /// Seeds a queue for [crossword]: [startLocation] (across) when the grid is
+  /// empty, otherwise every character that belongs to exactly one word, with
+  /// the perpendicular direction a crossing word would need.
+  static WorkQueue from({
+    required Crossword crossword,
+    required Iterable<String> candidateWords,
+    required Location startLocation,
+  }) {
+    return WorkQueue(
+      (b) => b
+        ..crossword.replace(crossword)
+        ..candidateWords.replace(candidateWords)
+        ..locationsToTry.replace(
+          crossword.words.isEmpty
+              ? {startLocation: Direction.across}
+              : _openLocations(crossword, BuiltSet<Location>()),
+        ),
+    );
+  }
+
+  static BuiltMap<Location, Direction> _openLocations(
+    Crossword crossword,
+    BuiltSet<Location> badLocations,
+  ) {
+    final result = MapBuilder<Location, Direction>();
+    for (final MapEntry(key: location, value: character)
+        in crossword.characters.entries) {
+      if (badLocations.contains(location)) {
+        continue;
+      }
+      // Characters in two words, or next to a parallel word, can't take
+      // another crossing word.
+      if (character.acrossWord != null && character.downWord != null) {
+        continue;
+      }
+      result[location] = switch ((character.acrossWord, character.downWord)) {
+        (null, null) => throw StateError('Character is not part of a word'),
+        (null, _) => Direction.across,
+        (_, null) => Direction.down,
+        (_, _) => throw StateError('Character is part of two words'),
+      };
+    }
+    return result.build();
+  }
+
+  /// Marks [location] as a dead end and removes it from the queue.
+  WorkQueue remove(Location location) {
+    return rebuild(
+      (b) => b
+        ..locationsToTry.remove(location)
+        ..badLocations.add(location),
+    );
+  }
+
+  /// Adopts [crossword] (a valid extension of the current one): drops the
+  /// words it used from the candidates and recomputes the open locations,
+  /// keeping the known bad ones out.
+  WorkQueue updateFrom(Crossword crossword) {
+    return rebuild(
+      (b) => b
+        ..crossword.replace(crossword)
+        ..candidateWords.removeAll(crossword.words.map((w) => w.word))
+        ..locationsToTry.replace(_openLocations(crossword, badLocations)),
+    );
+  }
+
+  WorkQueue._();
+  factory WorkQueue([void Function(WorkQueueBuilder)? updates]) = _$WorkQueue;
 }

@@ -6,51 +6,96 @@ import 'package:flutter/foundation.dart';
 import 'model.dart';
 import 'utils.dart';
 
-/// Gives up after this many consecutive rejected candidates (random placement
-/// rarely reaches 80% coverage on its own).
-const _maxConsecutiveFailures = 2000;
+/// Words tried per background call before a location is declared a dead end.
+const _maxWordsPerAttempt = 1000;
 
 /// Top-level so the closure passed to [compute] captures nothing unsendable.
-Crossword? _tryAddWord((Crossword, String, Direction, Location) args) {
-  final (crossword, word, direction, location) = args;
-  return crossword.addWord(word: word, direction: direction, location: location);
+///
+/// Tries to cross [location] with one of [words] (running in [direction]) and
+/// returns the first valid [Crossword], or `null` if none fits.
+Crossword? _findFit(
+  (Crossword, List<String>, Location, Direction, String?) args,
+) {
+  final (crossword, words, location, direction, character) = args;
+
+  for (final word in words) {
+    // With no character yet (empty grid) the word simply starts at location.
+    final offsets = character == null
+        ? const [0]
+        : [
+            for (var i = 0; i < word.length; i++)
+              if (word[i] == character) i,
+          ];
+
+    for (final offset in offsets) {
+      final start = switch (direction) {
+        Direction.across => location.leftOffset(offset),
+        Direction.down => location.upOffset(offset),
+      };
+      final candidate = crossword.addWord(
+        word: word,
+        direction: direction,
+        location: start,
+      );
+      if (candidate != null) {
+        return candidate;
+      }
+    }
+  }
+  return null;
 }
 
-int _filledCells(Crossword crossword) => crossword.characters.length;
-
-/// Tries random word placements, validating each candidate in a background
-/// isolate, and yields every valid [Crossword] until 80% of the cells are
-/// filled.
+/// Backtracking search: repeatedly picks an open intersection from the
+/// [WorkQueue], filters the dictionary to words containing the letter already
+/// there, and tries to cross it in a background isolate. Dead ends are
+/// removed from the queue. Yields every improved [Crossword].
 Stream<Crossword> exploreCrosswordSolutions({
   required Crossword crossword,
   required BuiltSet<String> wordList,
 }) async* {
   final random = Random();
-  final totalCells = crossword.width * crossword.height;
-  var failures = 0;
+  final stopwatch = Stopwatch()..start();
 
-  while (_filledCells(crossword) / totalCells < 0.8 &&
-      failures < _maxConsecutiveFailures) {
-    final word = wordList.randomElement();
-    final direction = random.nextBool() ? Direction.across : Direction.down;
-    final location = Location.at(
-      random.nextInt(crossword.width),
-      random.nextInt(crossword.height),
-    );
+  var workQueue = WorkQueue.from(
+    crossword: crossword,
+    candidateWords: wordList,
+    startLocation: Location.at(0, 0),
+  );
 
-    final candidate = await compute(_tryAddWord, (
-      crossword,
-      word,
-      direction,
+  while (!workQueue.isCompleted) {
+    final locations = workQueue.locationsToTry.keys;
+    final location = locations.elementAt(random.nextInt(locations.length));
+    final direction = workQueue.locationsToTry[location]!;
+    final character = workQueue.crossword.characters[location]?.character;
+
+    final words =
+        workQueue.candidateWords
+            .where(
+              (word) => character == null
+                  ? word.length <= workQueue.crossword.width
+                  : word.contains(character),
+            )
+            .toList()
+          ..shuffle(random);
+
+    final candidate = await compute(_findFit, (
+      workQueue.crossword,
+      words.take(_maxWordsPerAttempt).toList(),
       location,
+      direction,
+      character,
     ));
 
     if (candidate == null) {
-      failures++;
-      continue;
+      workQueue = workQueue.remove(location);
+    } else {
+      workQueue = workQueue.updateFrom(candidate);
+      yield workQueue.crossword;
     }
-    failures = 0;
-    crossword = candidate;
-    yield crossword;
   }
+
+  debugPrint(
+    'Generated ${workQueue.crossword.words.length} words in '
+    '${stopwatch.elapsed.formatted}',
+  );
 }
